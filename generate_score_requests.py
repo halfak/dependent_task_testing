@@ -1,7 +1,8 @@
 """
 Generates 1000 sequential scoring requests against a celery worker
 
-Usage: generate_score_requests <model-name>... [-d <secs>]
+Usage: generate_score_requests <model-name>... [-d <secs>] [--start <i>] [--end <i>]
+                                               [--shuffle]
 
 Arguments:
     <model-name>  A comma-separated list a model names to score.
@@ -9,8 +10,12 @@ Arguments:
 Options:
     -h --help          Prints this documentation
     -d --delay <secs>  Min delay between requests in seconds [default: 0.5]
+    --start <i>        ID to start counting from scoring requests [default: 0]
+    --end <i>          ID to end counting in scoring requests [default: 1000]
+    --shuffle          Shuffle the order of IDs
 """
 import time
+import random
 
 import docopt
 
@@ -21,8 +26,16 @@ def main():
     args = docopt.docopt(__doc__)
     delay = float(args['--delay'])
     model_names = args['<model-name>']
+    start = int(args['--start'])
+    end = int(args['--end'])
 
-    for rev_id in range(0, 1000):
+    if args['--shuffle']:
+        rev_ids = list(range(start, end))
+        random.shuffle(rev_ids)
+    else:
+        rev_ids = range(start, end)
+
+    for rev_id in rev_ids:
         print("Processing fake rev_id {0}".format(rev_id))
         start = time.time()
 
@@ -47,7 +60,7 @@ def main():
             print("Submitting scoring request...")
             models_result = \
                 celery_tasks.score_many_models.apply_async(args=(model_names,))
-            for model_name in model_names:
+            for model_name in missing_models:
                 model_result = celery_tasks.score_model.apply_async(
                     args=(models_result.id, model_name),
                     task_id=model_name + ":" + str(rev_id))

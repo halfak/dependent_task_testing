@@ -7,6 +7,7 @@ TIMEOUT = 15
 
 app = Celery('celery_tasks', backend='redis://localhost',
              broker='redis://localhost')
+app.conf.update(CELERYD_PREFETCH_MULTIPLIER=1)
 
 
 @before_task_publish.connect
@@ -17,12 +18,12 @@ def update_sent_state(sender=None, body=None, **kwargs):
     backend.store_result(body['id'], result=None, status="SENT")
 
 
-@app.task
+@app.task(priority=0)
 def score_many_models(model_names):
     return simple_ores.score_many_models(model_names)
 
 
-@app.task
+@app.task(priority=1)
 def score_model(models_task_id, model_name):
     models_result = score_many_models.AsyncResult(models_task_id)
     return simple_ores.score_model(
